@@ -1,189 +1,299 @@
-# Reproducing Dropout on MNIST
+  # Reproducing Dropout on MNIST
 
-**A reproduction report on *Dropout: A Simple Way to Prevent Neural Networks from
-Overfitting* (Srivastava, Hinton, Krizhevsky, Sutskever & Salakhutdinov, JMLR 2014)**
+**A reproduction report on *Dropout: A Simple Way to Prevent Neural Networks from Overfitting* (Srivastava et al., 2014)**
 
-Author: Dantu Bhavyasree
+**Author:** Dantu Bhavyasree
 
 ---
 
 ## Abstract
 
-Standard neural networks with many parameters can memorize small training datasets
-instead of learning general patterns. This is called overfitting. Using many
-different networks and averaging their predictions can reduce this problem, but
-it is expensive. Dropout (Srivastava et al., 2014) approximates this averaging
-inside a *single* network by randomly dropping hidden units during training. I
-reproduced the MNIST feed-forward experiment from the paper using a fully
-connected net with three hidden layers of 1024 ReLU units
-(`784 → 1024 → 1024 → 1024 → 10`), trained once **without dropout** and once
-**with dropout** (input `p = 0.2`, hidden `p = 0.5`), differing in nothing else.
-The no-dropout net reaches a test error of **3.22%** (96.78% accuracy) and
-memorizes the training set; the dropout net reaches **2.70%** (97.30% accuracy)
-with a train–validation gap of only 0.05 points instead of 2.88. Dropout
-therefore lowered my test error by 0.52 points (≈16% relative) in the same
-direction as the paper, though my absolute errors are higher than the paper's
-1.25% because I train for 3,140 weight updates instead of roughly a million. The
-experiment, the two training curves and the final test accuracies are produced by
-a single notebook, `notebooks/MNIST_Dropout_Experiment.ipynb`.
+Neural networks can sometimes learn the training data too closely. This is called **overfitting**. Dropout is a technique that helps reduce overfitting by randomly turning off some neurons during training.
+
+In this project, I reproduced the basic MNIST feed-forward neural network experiment from the paper *Dropout: A Simple Way to Prevent Neural Networks from Overfitting*. I used a fully connected neural network with three hidden layers of 1024 ReLU neurons. The same network was trained twice: once without dropout and once with dropout.
+
+The network without dropout achieved **96.78% test accuracy**, while the network with dropout achieved **97.30% test accuracy**. The test error decreased from **3.22% to 2.70%** when dropout was used.
+
+The results also show less overfitting with dropout. The no-dropout model reached **100% training accuracy** but **97.12% validation accuracy**, while the dropout model reached **97.37% training accuracy** and **97.32% validation accuracy**.
+
+These results support the main idea of the original paper that dropout can reduce overfitting and improve performance on unseen data.
+
+---
 
 ## 1. Introduction
 
-Deep neural networks can perform poorly on new data when they have too many
-parameters compared to the amount of training data. Srivastava et al. (2014)
-introduce **dropout**: during training, each hidden unit is temporarily removed
-with some probability, so no unit can rely on the presence of any particular
-other unit. This prevents *co-adaptation* of feature detectors and forces the
-network to build more robust, redundant representations.
+Neural networks learn patterns from training data. However, a network can sometimes learn the training examples too closely instead of learning patterns that work well on new data. This problem is called **overfitting**.
 
-At test time, dropout is *not* applied. Instead the full network is used, and
-because the dropped units are rescaled by `1/(1-p)` during training
-("inverted dropout"), the test forward pass needs no extra correction and
-approximately averages an exponential number of "thinned" networks.
+Dropout was introduced by Srivastava et al. (2014) as a way to reduce overfitting.
 
-On MNIST, with a 3-layer network of 1024 ReLU units per layer, the paper reports
-a test error of **1.25%**, down from the ≈1.60% of a standard full net. In this
-report I reproduce the *basic architecture* version of that experiment
-end-to-end and compare my numbers with the paper.
+During training, dropout randomly turns off some neurons. This prevents the network from depending too much on particular neurons and encourages it to learn more general patterns.
 
-## 2. Dropout in brief
+Dropout is turned off during testing, so the complete network is used to make predictions.
 
-For a unit *h* retained with probability *p* during training:
+In this project, I reproduced a basic MNIST experiment from the original paper. I trained the same neural network with and without dropout and compared their training, validation, and test performance.
 
+---
+
+## 2. Dropout in Brief
+
+Dropout randomly turns off some neurons during training.
+
+For example:
+
+```text
+Before dropout:
+
+● ● ● ● ● ● ● ●
+
+After dropout:
+
+● ✕ ● ● ✕ ● ✕ ●
 ```
-  drop(h) = 0           with probability 1 - p         (training)
-            h / (1-p)   with probability p            (training)
-            h           always                        (test, "inverted dropout")
+
+The `✕` neurons are temporarily ignored during that training step.
+
+In this experiment:
+
+* **Input dropout:** 20%
+* **Hidden-layer dropout:** 50%
+
+Dropout is used only during training. During testing, all neurons are used.
+
+The main purpose of dropout is to reduce overfitting and help the network perform better on data it has not seen before.
+
+---
+
+## 3. Experimental Setup
+
+### 3.1 Dataset
+
+The experiment uses the **MNIST handwritten digit dataset**.
+
+Each image is a 28 × 28 grayscale image containing a handwritten digit from 0 to 9.
+
+For this experiment, the dataset was divided as follows:
+
+| Split      | Number of Images |
+| ---------- | ---------------: |
+| Training   |           20,000 |
+| Validation |            5,000 |
+| Testing    |            5,000 |
+| Unused     |           30,000 |
+
+The data split used random seed `42`.
+
+The 5,000 test images were selected from the original MNIST training set. The official 10,000-image MNIST test set was not used.
+
+### 3.2 Network Architecture
+
+Both experiments use the same fully connected neural network:
+
+```text
+784 → 1024 → 1024 → 1024 → 10
 ```
 
-This is Eq. (5) of the paper, and it is exactly what `nn.Dropout` implements in
-PyTorch. Because dropout thins the network during training, the training error
-of a dropout net is *higher* at a given epoch than the same net without
-dropout — dropout nets simply train slower — but they keep generalizing, so
-their *test* error eventually overtakes the no-dropout net.
+Where:
 
-## 3. Experimental setup
+* `784` = 28 × 28 input pixels
+* `1024` = first hidden layer
+* `1024` = second hidden layer
+* `1024` = third hidden layer
+* `10` = output classes for digits 0–9
 
-| Component | Value |
-|---|---|
-| Dataset | MNIST: 60,000 train images, 28×28 grayscale |
-| Split | 20,000 train + 5,000 validation + 5,000 test (seed 42; the remaining 30,000 images are left unused) |
-| Architecture | `784 → 1024 (ReLU) → 1024 (ReLU) → 1024 (ReLU) → 10` |
-| Optimizer | SGD, lr = 0.01, momentum = 0.95 |
-| Minibatch | 128 (157 batches per epoch) |
-| Epochs | 20 → 3,140 weight updates |
-| Dropout net | input retention `p = 0.8` (dropout 0.2); hidden retention `p = 0.5` |
-| Loss | softmax cross-entropy |
-| Implementation | PyTorch; single notebook in `notebooks/`, run on Google Colab |
+ReLU activation is used in the hidden layers.
 
-Two models are trained identically except for the presence of dropout: a
-**no-dropout** net and a **dropout** net (dropout only active during training;
-accuracy is always measured in eval mode so the comparison is fair). The
-reported test accuracy is measured once, after epoch 20, on the 5,000-image test
-split that was held out of the training pool and never seen during training.
+### 3.3 Training Settings
+
+| Setting           | Value   |
+| ----------------- | ------- |
+| Framework         | PyTorch |
+| Optimizer         | SGD     |
+| Learning Rate     | 0.01    |
+| Momentum          | 0.95    |
+| Batch Size        | 128     |
+| Epochs            | 20      |
+| Hidden Activation | ReLU    |
+| Input Dropout     | 0.2     |
+| Hidden Dropout    | 0.5     |
+| Device            | CPU     |
+| Training Images   | 20,000  |
+| Validation Images | 5,000   |
+| Test Images       | 5,000   |
+
+The experiment was run using **Google Colab**.
+
+### 3.4 Two Experiments
+
+Two versions of the same network were trained.
+
+**Experiment 1 — Without Dropout**
+
+```text
+784 → 1024 → 1024 → 1024 → 10
+```
+
+**Experiment 2 — With Dropout**
+
+```text
+784 → Dropout → 1024 → Dropout → 1024 → Dropout → 1024 → 10
+```
+
+All other training settings were kept the same.
+
+---
 
 ## 4. Results
 
-### 4.1 My results
+### 4.1 Final Results
 
-| Model | Train acc. (epoch 20) | Validation acc. (epoch 20) | Test acc. | Test error |
-|---|---|---|---|---|
-| No dropout | 100.00% | 97.12% | 96.78% | 3.22% |
-| Dropout (input 0.2, hidden 0.5) | 97.37% | 97.32% | 97.30% | **2.70%** |
+| Model           | Training Accuracy | Validation Accuracy | Test Accuracy | Test Error |
+| --------------- | ----------------: | ------------------: | ------------: | ---------: |
+| Without Dropout |           100.00% |              97.12% |        96.78% |      3.22% |
+| With Dropout    |            97.37% |              97.32% |    **97.30%** |  **2.70%** |
 
-Headline numbers from my run:
+The dropout model achieved:
 
-- **Test error 3.22% → 2.70%** with dropout: −0.52 points, a ≈16% relative
-  reduction (26 of the 5,000 test images).
-- **Train–validation gap 2.88 → 0.05 points.** The no-dropout net drives training
-  accuracy to 100% while validation stalls at 97.12%; the dropout net ends with
-  train 97.37% and validation 97.32%, i.e. it stops memorizing.
-- **Dropout learns more slowly.** At epoch 1 the dropout net is at 39.84% train
-  accuracy against 55.77% for the no-dropout net, and it only catches up on
-  training accuracy around epoch 13. On validation accuracy the two runs are
-  neck-and-neck until epoch 15 (both 97.12%), and from epoch 16 onward the
-  dropout run is higher in every remaining epoch (97.26 / 97.30 / 97.42 / 97.32 /
-  97.32 against 97.04 / 97.02 / 97.08 / 97.14 / 97.12).
+**97.30% test accuracy**
 
-> Figures: `results/without_dropout.png` and `results/with_dropout.png` show the
-> train and validation accuracy curves for the two runs, written by cells 9 and
-> 10 of the notebook.
+compared with:
 
-### 4.2 Comparison with the paper (Table 2, feed-forward MNIST nets)
+**96.78% test accuracy**
 
-| Model | Test error | Source |
-|---|---|---|
-| Standard net, 2 layers, 800 logistic units (Simard et al., 2003) | 1.60% | paper |
-| **My no-dropout net, 3 × 1024 ReLU, 3,140 updates** | **3.22%** | this reproduction |
-| **My dropout net, 3 × 1024 ReLU, input 0.2 / hidden 0.5, 3,140 updates** | **2.70%** | this reproduction |
-| Dropout net, 3 layers, 1024 logistic units | 1.35% | paper |
-| Dropout net, 3 layers, 1024 ReLU units | 1.25% | paper |
-| Dropout net + max-norm, 3 layers, 1024 ReLU units | 1.06% | paper |
-| Dropout net + max-norm, 2 layers, 8192 ReLU units | 0.95% | paper |
+without dropout.
 
-My dropout net is **1.45 points worse** than the paper's comparable 3 × 1024 ReLU
-dropout net (2.70% vs 1.25%), and my no-dropout net is **1.62 points worse** than
-the standard net the paper compares against (3.22% vs 1.60%). In other words
-both of my runs are weaker in absolute terms, but the *ordering and the sign of
-the effect* match the paper: adding dropout to the same architecture reduces the
-test error.
+Therefore:
 
-### 4.3 Observations
+```text
+Test accuracy improvement = 97.30% - 96.78%
+                           = 0.52 percentage points
+```
 
-1. **Dropout helps, but less than in the paper.** The paper's headline gap is
-   1.60% → 1.25% (−0.35 points); mine is 3.22% → 2.70% (−0.52 points). The
-   relative improvement is of the same order, from a weaker starting point.
-2. **Overfitting in the no-dropout net.** Training accuracy saturates at 100%
-   from epoch 16 onwards while validation accuracy oscillates around 97.1% — the
-   signature of memorization with no generalization gain.
-3. **Dropout trains slower, as the paper predicts.** It trails on training
-   accuracy for the first twelve epochs and only overtakes on validation accuracy
-   late in training. This is the classic dropout learning-curve signature (slow
-   train, still-improving validation), and it is why short runs understate
-   dropout's benefit.
-4. **Single run, no global seed.** Only the data split is seeded (42); weight
-   initialization and batch order are not, so repeated runs will differ. A 0.52
-   point gap on 5,000 test images is 26 images, and the standard error of a
-   single accuracy estimate at this level is ≈0.24 points, so this gap is
-   suggestive rather than statistically strong. Repeating both runs over several
-   seeds would be needed to state it as a firm result.
-5. **Test split is small and comes from the training pool.** I hold out 5,000 of
-   the 60,000 training images instead of using the official 10,000-image test
-   set, which adds noise to every number in section 4.1.
+The test error decreased from:
 
-## 5. Comparison with the Original Paper
+```text
+3.22% → 2.70%
+```
 
-The paper reports a 1.25% MNIST test error using a larger network, roughly a
-million weight updates, input-layer dropout and max-norm constraints. My
-experiment uses 3,140 weight updates (20 epochs over 20,000 images), a learning
-rate of 0.01 with momentum 0.95, no max-norm constraint, no data augmentation,
-and discards 30,000 of the 60,000 available images. Section 4.3 explains why
-this matters most for the dropout net: dropout's advantage grows with training
-length, and at 3,140 updates the dropout run has barely moved past the no-dropout
-run. Matching the paper more closely would mean training for far more epochs at a
-higher learning rate, adding max-norm constraints, and evaluating on the official
-10,000-image test set.
+---
+
+### 4.2 Training and Validation Accuracy
+
+The no-dropout model reached **100% training accuracy**, while its validation accuracy was **97.12%**.
+
+This gives a difference of:
+
+```text
+100.00% - 97.12% = 2.88 percentage points
+```
+
+This shows that the model performed much better on the training data than on the validation data.
+
+With dropout:
+
+```text
+Training accuracy   = 97.37%
+Validation accuracy = 97.32%
+```
+
+The difference was only:
+
+```text
+97.37% - 97.32% = 0.05 percentage points
+```
+
+The much smaller difference suggests that dropout reduced overfitting in this experiment.
+
+---
+
+### 4.3 Learning During Training
+
+The dropout model learned more slowly at the beginning.
+
+After the first epoch:
+
+| Model           | Training Accuracy | Validation Accuracy |
+| --------------- | ----------------: | ------------------: |
+| Without Dropout |            55.77% |              87.84% |
+| With Dropout    |            39.84% |              80.42% |
+
+However, the validation accuracy of the dropout model continued to improve during training.
+
+At epoch 20:
+
+| Model           | Training Accuracy | Validation Accuracy |
+| --------------- | ----------------: | ------------------: |
+| Without Dropout |           100.00% |              97.12% |
+| With Dropout    |            97.37% |              97.32% |
+
+This shows that dropout made training slower but helped reduce the difference between training and validation performance.
+
+---
+
+## 5. Comparison With the Original Paper
+
+The original paper reported a **1.25% test error** for a similar three-layer network with 1024 ReLU units and dropout.
+
+My experiment produced a **2.70% test error**.
+
+| Experiment      | Test Error |
+| --------------- | ---------: |
+| Original paper  |      1.25% |
+| My reproduction |      2.70% |
+
+The results are different because the experimental setup was not exactly the same.
+
+### Main differences
+
+My experiment used:
+
+* 20,000 training images
+* 5,000 validation images
+* 5,000 test images
+* 20 epochs
+* 3,140 weight updates
+* No max-norm constraint
+* No data augmentation
+* One training run
+
+The original paper used a larger training setup and trained the network for much longer. It also used additional techniques such as max-norm constraints.
+
+Therefore, this project should be considered a **reproduction of the main experiment and idea**, rather than an exact reproduction of every detail of the original paper.
+
+The important observation is that, under the same setup, the dropout model achieved lower test error than the no-dropout model:
+
+```text
+Without Dropout: 3.22%
+With Dropout:    2.70%
+```
+
+---
 
 ## 6. Conclusion
 
-I set up a controlled MNIST experiment in which the only difference between the
-two runs is the presence of dropout. The no-dropout network memorized the
-training set (100% train accuracy) for a 3.22% test error, while dropout
-prevented hidden units from depending on each other too strongly: training was
-slower, the train–validation gap shrank from 2.88 to 0.05 points, and the test
-error fell to 2.70%. This reproduces the qualitative claim of the 2014 paper —
-dropout trades slower training for less overfitting and better test error — at
-a much shorter training budget than the paper used, and with a gap that a single
-seeded run cannot separate from run-to-run noise.
+This project compared the same MNIST neural network with and without dropout.
 
-## References
+The network without dropout achieved **96.78% test accuracy**, while the network with dropout achieved **97.30% test accuracy**.
 
-- Srivastava, N., Hinton, G., Krizhevsky, A., Sutskever, I., & Salakhutdinov, R.
-  (2014). *Dropout: A simple way to prevent neural networks from overfitting.*
-  Journal of Machine Learning Research, 15, 1929–1958.
-- Simard, P. Y., Steinkraus, D., & Platt, J. C. (2003). *Best practices for
-  convolutional neural networks applied to visual document analysis.* ICDAR.
-- LeCun, Y., Bottou, L., Bengio, Y., & Haffner, P. (1998). *Gradient-based learning
-  applied to document recognition.* Proceedings of the IEEE.
+Dropout therefore improved test accuracy by **0.52 percentage points** and reduced test error from **3.22% to 2.70%**.
+
+The no-dropout model reached 100% training accuracy but had lower validation accuracy. The dropout model had lower training accuracy but almost the same training and validation accuracy.
+
+This shows that dropout reduced overfitting in this experiment.
+
+Overall, the experiment supports the main idea of the original paper: **dropout can reduce overfitting and improve performance on unseen data.**
+
+The result is not as strong as the result reported in the original paper because this reproduction used fewer training images, fewer training updates, and a different experimental setup.
+
+---
+
+## 7. References
+
+1. N. Srivastava, G. Hinton, A. Krizhevsky, I. Sutskever, and R. Salakhutdinov, **"Dropout: A Simple Way to Prevent Neural Networks from Overfitting,"** *Journal of Machine Learning Research*, vol. 15, pp. 1929–1958, 2014.
+
+2. P. Y. Simard, D. Steinkraus, and J. C. Platt, **"Best Practices for Convolutional Neural Networks Applied to Visual Document Analysis,"** ICDAR, 2003.
+
+3. Y. LeCun, L. Bottou, Y. Bengio, and P. Haffner, **"Gradient-Based Learning Applied to Document Recognition,"** *Proceedings of the IEEE*, 1998.
+
+
 
 ---
