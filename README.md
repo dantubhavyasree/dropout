@@ -47,13 +47,4 @@ dropout/
 | Epochs | 20 |
 | Loss | cross-entropy |
 
-## Reference numbers from the paper (feed-forward MNIST nets)
-
-| Model | Test error |
-|---|---|
-| Standard 2-layer net, 800 logistic units (Simard et al., 2003) | 1.60% |
-| Dropout net, 3 layers, 1024 logistic units | 1.35% |
-| Dropout net, 3 layers, 1024 ReLU units | **1.25%** |
-| Dropout net + max-norm, 3 layers, 1024 ReLU units | 1.06% |
-
 See `PAPER.md` for the full reproduction report.
