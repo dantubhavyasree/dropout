@@ -3,19 +3,18 @@
 **A reproduction report on *Dropout: A Simple Way to Prevent Neural Networks from
 Overfitting* (Srivastava, Hinton, Krizhevsky, Sutskever & Salakhutdinov, JMLR 2014)**
 
-Author: _[your name]_
-Date: _[fill in]_
-
+Author: Dantu Bhavyasree
 ---
 
 ## Abstract
 
-Standard neural networks with many parameters easily overfit small training sets,
-and the only reliable way to use them for prediction is to average many networks —
-which is expensive. Dropout (Srivastava et al., 2014) approximates this averaging
-inside a *single* network by randomly dropping hidden units during training. We
-reproduce the MNIST feed-forward experiment from the paper using a basic fully
-connected net (`784 → 1024 → 1024 → 10`, ReLU). Our no-dropout baseline reaches
+standard neural networks with many parameters can memorize small training datasets 
+instead of learning general patterns. This is called overfitting. Using many 
+different networks and averaging their predictions can reduce this problem, but 
+it is expensive. Dropout (Srivastava et al., 2014) approximates this averaging
+inside a *single* network by randomly dropping hidden units during training. I
+reproduced the MNIST feed-forward experiment from the paper using a basic fully
+connected net (`784 → 1024 → 1024 → 10`, ReLU). no-dropout baseline reaches
 **1.60% test error**, matching the classic non-dropout result cited in the paper
 (Simard et al., 2003), while `_[fill: drop-out test error]` with dropout `p = 0.5`
 applied to hidden layers. Consistent with the paper, the dropout model does not
@@ -23,8 +22,9 @@ memorize the training set and exhibits a much smaller train–test gap.
 
 ## 1. Introduction
 
-Rectified deep networks generalize poorly when the number of parameters is large
-relative to the data. Srivastava et al. (2014) introduce **dropout**: during training,
+Deep neural networks can perform poorly on new data when they have too many parameters 
+compared to the amount of training data. Srivastava et al. (2014) introduce **dropout**: 
+during training,
 each hidden unit is temporarily removed with some probability, so no unit can rely on
 the presence of any particular other unit. This prevents *co-adaptation* of feature
 detectors and forces the network to build more robust, redundant representations.
@@ -35,8 +35,8 @@ forward pass approximately averages an exponential number of "thinned" networks.
 
 On MNIST, with a 3-layer network of 1024 ReLU units per layer, the paper reports a
 test error of **1.25%**, down from the ≈1.60% of a standard full net. In this report
-we reproduce the *basic architecture* version of that experiment end-to-end and
-compare our numbers with the paper.
+I reproduced the *basic architecture* version of that experiment end-to-end and
+compared our numbers with the paper.
 
 ## 2. Dropout in brief
 
@@ -109,38 +109,24 @@ reference values measured during our own reproduction run.]_`
    not overfit. This is the classic dropout learning-curve signature (slow train,
    still-improving test error).
 
-## 5. Discussion
+## 5. Comparison with the Original Paper
 
-- The paper's headline MNIST numbers (1.25% with 3 hidden layers of 1024 ReLU units,
-  ~1M weight updates, `p = 0.5` hidden / `p = 0.8` input, plus max-norm constraints)
-  use a somewhat larger and much longer-trained network. Our basic architecture matches
-  the *method*; the quantitative gap between our error and 1.25% is explained by
-  network width, input-layer dropout, max-norm, and total training budget — not by the
-  dropout mechanism itself.
-- Because dropout nets train more slowly, short training runs (such as a 20-epoch
-  Colab run) can *underestimate* the benefit of dropout. The paper's "1 million weight
-  updates" ≈ 2,000+ epochs at our batch size. Running longer and/or wider may close the
-  gap to the paper's 1.25%.
-- Reproducibility: fixed seed (`42`), identical initialization and data split for both
-  conditions, so the only difference between the two nets is dropout.
+The paper reports a 1.25% MNIST test error using a larger network, longer training of approximately 1 million weight updates, input-layer dropout, and max-norm constraints. My experiment uses a simpler architecture and fewer weight updates, so the results are not expected to match the paper's 1.25% exactly.
 
-## 6. Reproducing this report
+Dropout also tends to make training slower. Therefore, using fewer weight updates may not show the full benefit of dropout.
 
-All code is in this repository and runs on **Google Colab** (no local GPU needed):
+For reproducibility, both models use the same random seed (`42`), initialization, and data split. The main difference between the two conditions is the use of dropout.
 
-1. `notebooks/Training.ipynb` — trains both nets, saves curves to `results/`.
-2. `notebooks/Evaluation.ipynb` — final test numbers + confusion matrix.
-3. `notebooks/Inference.ipynb` — example predictions in `results/sample_results/`.
 
-Set `REPO_URL` in the first cell to point at your GitHub copy of this repo.
+## 6. Conclusion
 
-## 7. Conclusion
-
-Using only a basic MLP on MNIST we reproduce the central claim of Srivastava et al.
-(2014): a no-dropout network quickly memorizes the training set (100% train accuracy,
-1.60% test error), while dropout prevents this co-adaptation, trains more slowly but
-generalizes substantially more robustly. Our no-dropout test error of 1.60% matches
-the paper's reference baseline exactly, and the dropout learning-curve signature is
+I used a simple MLP on the MNIST dataset and got results similar to the main finding 
+of the 2014 Srivastava et al. paper.: a no-dropout network quickly memorizes the 
+training set (100% train accuracy,
+1.60% test error), while Dropout stops neurons from depending too much on each other. 
+Training becomes slower, but the model works better on new data and overfits less.
+my no-dropout test error of 1.60% matches
+the paper's reference baseline , and the dropout learning-curve signature is
 qualitatively the one the paper reports.
 
 ## References
@@ -154,7 +140,3 @@ qualitatively the one the paper reports.
   applied to document recognition.* Proceedings of the IEEE.
 
 ---
-
-_This document is a reproduction/student report, not affiliated with the original
-authors. Update the `[fill]` markers with the numbers from your own runs before
-publication._
