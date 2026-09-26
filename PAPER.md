@@ -40,17 +40,10 @@ Dropout randomly turns off some neurons during training.
 
 For example:
 
-```text
-Before dropout:
+<img width="569" height="313" alt="image" src="https://github.com/user-attachments/assets/62379f8d-e957-4e85-9bdd-1eef8fba109f" />
 
-● ● ● ● ● ● ● ●
 
-After dropout:
-
-● ✕ ● ● ✕ ● ✕ ●
-```
-
-The `✕` neurons are temporarily ignored during that training step.
+The neurons are temporarily ignored during that training step.
 
 In this experiment:
 
